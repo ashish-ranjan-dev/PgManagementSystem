@@ -1,0 +1,66 @@
+services:
+
+  # ---------- PostgreSQL ----------
+  postgres:
+    image: postgres:16-alpine
+    container_name: pgm-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      # We only define one DB here; the second is created via init script
+      POSTGRES_DB: auth_db
+    volumes:
+      - pgm-postgres-data:/var/lib/postgresql/data
+      - ./postgres-init:/docker-entrypoint-initdb.d:ro
+    ports:
+      # Exposed to host only for your own SQL client access during dev.
+      # In production this would not be exposed.
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  # ---------- Auth Service ----------
+  auth-service:
+    build:
+      context: ./auth-service
+    container_name: pgm-auth-service
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/auth_db
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET}
+      PG_SERVICE_URL: http://pg-service:8082
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:5173}
+    ports:
+      - "8081:8081"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      pg-service:
+        condition: service_started
+    restart: unless-stopped
+
+  # ---------- PG Service ----------
+  pg-service:
+    build:
+      context: ./pg-service
+    container_name: pgm-pg-service
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/pg_db
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY}
+    ports:
+      - "8082:8082"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  pgm-postgres-data:

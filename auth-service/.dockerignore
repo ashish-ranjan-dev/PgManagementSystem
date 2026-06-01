@@ -1,0 +1,28 @@
+# Build artifacts
+build/
+.gradle/
+out/
+
+# IDE
+.idea/
+*.iml
+
+# OS
+.DS_Store
+
+# Secrets — CRITICAL, never copy into image
+.env
+.env.*
+!.env.example
+
+# VCS
+.git/
+.gitignore
+
+# Local config
+application-local.yml
+*.pem
+*.key
+
+# Docs
+*.md
